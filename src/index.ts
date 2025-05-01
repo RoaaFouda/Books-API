@@ -49,49 +49,44 @@ app.get('/api/v1/books/:id', async (req: Request, res: Response) => {
 app.get('/api/v1/books', async (req: Request, res: Response) => {
     try {
         const {search, year, page, limit, select} = req.query;
-        let books;
-        if(search){
-            books = await prisma.book.findMany({
-                where: {
-                    title: {
-                        contains: String(search)
-                    }
-                }
-            });
-        } else if (year) {
-            books = await prisma.book.findMany({
-                where: {
-                    year: Number(year)
-                }
-            });
-        } else if (page && limit) {
-            const pageSize = Number(limit) || 10;
-            const skipSize = ( (Number(page) - 1) * pageSize);
-
-            books = await prisma.book.findMany({
-                skip: skipSize,
-                take: pageSize
-            });
-        } else if (typeof select === "string") {
-            const selectItems = select.split(',');
-            let selectObj: Record<string, true> = {};
-            selectItems.forEach(
-                (item: string) => {
-                    selectObj[item] = true
-                }
-            )
-            books = await prisma.book.findMany({
-                select: selectObj
-            });
-        } else {
-            books = await prisma.book.findMany();
+        
+        const where: any = {};
+        if (search) {
+            where.title = { contains: String(search), mode: 'insensitive' };
         }
+        if (year) {
+            where.year = Number(year);
+        }
+
+    
+        const pageNumber = Number(page);
+        const pageSize = Number(limit);
+        const skip = (pageNumber - 1) * pageSize;
+
+        
+        let selectObj: any;
+        if (select) {
+            selectObj = {};
+             String(select).split(',').forEach(field => {
+            selectObj[field.trim()] = true;
+            });
+        }
+
+     
+        const books = await prisma.book.findMany({
+            where,
+            skip,
+            take: pageSize,
+            ...(selectObj && { select: selectObj })
+        });
+
         res.json({ message: "success", data: books });
     } catch (error) {
         console.error("Error fetching books:", error);
         res.status(500).json({ message: "Internal Server Error" });
     }
 });
+
 
 // Update a book by ID
 app.put('/api/v1/books/:id', async (req: Request, res: Response) => {
